@@ -1,0 +1,16 @@
+# Ignorar datos y resultados
+EEG Crudo/
+Gausian Kernel/
+Resultados/
+Transformer/
+__pycache__/
+Ex_Grafos_Paula_lib/
+eeglib-master/
+.DS_Store
+*.npz
+*.pkl
+*.png
+*.pdf
+*.key
+*.zip
+*:Zone.Identifier
