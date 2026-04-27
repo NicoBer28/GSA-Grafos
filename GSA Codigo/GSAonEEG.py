@@ -47,9 +47,22 @@ def leodatos(path):
 
 
 def extraer_features(X, threshold, local):
+    def escalar_a_real(value):
+        value = np.real_if_close(value)
+        if np.iscomplexobj(value):
+            value = np.abs(value)
+        return float(value)
+
+    def array_a_real(values):
+        values = np.real_if_close(np.asarray(values))
+        if np.iscomplexobj(values):
+            values = np.abs(values)
+        return values.astype(float)
+
     feature = []
 
     for kk in range(X.shape[0]):
+        #threshold = umbral_por_persona(X[kk, :, :], top_frac=0.20)
         graph, A, L = gpl.genero_grafo(
             X[kk, :, :], 
             threshold, 
@@ -62,14 +75,17 @@ def extraer_features(X, threshold, local):
         densidad, g_clus, l_clus = gpl.calculo_grafo(graph, [(11, 7), (12, 16)])
         entropy = gpl.calculo_entropia(graph, degree)
 
+        ec = array_a_real(ec)
+        degree = array_a_real(degree)
+
         feat = {
-            "AC": abs(ac),
-            "LE": le,
-            "Entropy": entropy,
-            "SR": spec_ratio,
-            "SG": abs(spec_gap),
-            "dens": densidad,
-            "g_clus": g_clus
+            "AC": escalar_a_real(abs(ac)),
+            "LE": escalar_a_real(le),
+            "Entropy": escalar_a_real(entropy),
+            "SR": escalar_a_real(spec_ratio),
+            "SG": escalar_a_real(abs(spec_gap)),
+            "dens": escalar_a_real(densidad),
+            "g_clus": escalar_a_real(g_clus)
         }
 
         
@@ -194,6 +210,24 @@ def varios_modelos(X_flat,y):
     df_results = pd.DataFrame(results).T
     print(df_results.sort_values("accuracy_mean", ascending=False))
 
+# Función para calcular el umbral global a partir de los datos de entrenamiento
+def umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac):
+    n_channels = plv_ctrl_train.shape[1]
+    # Solo tomo los valores del triangulo superior de la matriz (sin incluir la diagonal)
+    iu = np.triu_indices(n_channels, k=1)
+
+    vals_ctrl = plv_ctrl_train[:, iu[0], iu[1]].ravel()
+    vals_tdah = plv_tdah_train[:, iu[0], iu[1]].ravel()
+    vals_train = np.concatenate([vals_ctrl, vals_tdah])
+
+    return np.quantile(vals_train, 1 - top_frac)
+
+# Función para calcular el umbral específico para cada persona a partir de su matriz PLV
+def umbral_por_persona(plv_2d, top_frac):
+    iu = np.triu_indices_from(plv_2d, k=1)
+    vals = plv_2d[iu]
+    return np.quantile(vals, 1 - top_frac)
+
 # %% [2] CARGA DE DATOS
 
 ########################## MAIN ###############################################
@@ -240,7 +274,8 @@ if __name__ == "__main__":
 
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
-    threshold = 0.4   
+    threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac=0.20)
+    #threshold = 0.4   
     local = False
 
 
@@ -275,16 +310,16 @@ if __name__ == "__main__":
         df_feat_train = pd.concat(
         [ctrl_feat_train, tdah_feat_train],
         ignore_index=True)
-        #X_train = df_feat_train [["dens","SR", "degree", "ec"]]
-        X_train = df_feat_train [["AC","Entropy", "g_clus", "degree", "ec"]]
+        X_train = df_feat_train [["dens","SR", "degree", "ec"]]
+        #X_train = df_feat_train [["AC","Entropy", "g_clus", "degree", "ec"]]
         y_train = (df_feat_train ["grupo"] == "TDAH").astype(int)
         
         # Conjunto Test
         df_feat_test = pd.concat(
         [ctrl_feat_test, tdah_feat_test],
         ignore_index=True)
-        #X_test = df_feat_test [["dens","SR", "degree", "ec"]]
-        X_test = df_feat_test [["AC","Entropy", "g_clus", "degree", "ec"]]
+        X_test = df_feat_test [["dens","SR", "degree", "ec"]]
+        #X_test = df_feat_test [["AC","Entropy", "g_clus", "degree", "ec"]]
         y_test = (df_feat_test ["grupo"] == "TDAH").astype(int)
     
     else:
