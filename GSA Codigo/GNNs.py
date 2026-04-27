@@ -59,7 +59,7 @@ def feature_graphs(num_graphs=100, num_nodes=20, num_features=5):
     # Asignar el vector de características al nodo
     g.vp['features'][v] = [total_weight, avg_weight, max_weight, min_weight, std_weight]
 
-        graphs.append(graph_tool_to_pyg(g, labels))
+    graphs.append(graph_tool_to_pyg(g, labels))
     return graphs
 
 # Cargar datos

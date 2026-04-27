@@ -150,7 +150,7 @@ def phase_locking(datos, fs):
     
         # Calcular PLV entre todos los pares de canales
         for i in range(n_channels):
-            for j in range(i+1, n_channels):  # Solo triangulo superior (matriz simétrica)
+            for j in range(i+1, n_channels):  # Solo triangulo superior (matriz simétrica, las diagonales valen 0)
                 phase_diff = np.exp(1j * (phase_data[i, :] - phase_data[j, :]))  # Diferencia de fase en forma compleja
                 plv_matrix[i, j] = np.abs(np.mean(phase_diff))  # PLV = media del módulo
                 plv_matrix[j, i] = plv_matrix[i, j]  # Matriz simétrica
@@ -275,14 +275,16 @@ if __name__ == "__main__":
         df_feat_train = pd.concat(
         [ctrl_feat_train, tdah_feat_train],
         ignore_index=True)
-        X_train = df_feat_train [["dens","SR", "degree", "ec"]]
+        #X_train = df_feat_train [["dens","SR", "degree", "ec"]]
+        X_train = df_feat_train [["AC","Entropy", "g_clus", "degree", "ec"]]
         y_train = (df_feat_train ["grupo"] == "TDAH").astype(int)
         
         # Conjunto Test
         df_feat_test = pd.concat(
         [ctrl_feat_test, tdah_feat_test],
         ignore_index=True)
-        X_test = df_feat_test [["dens","SR", "degree", "ec"]]
+        #X_test = df_feat_test [["dens","SR", "degree", "ec"]]
+        X_test = df_feat_test [["AC","Entropy", "g_clus", "degree", "ec"]]
         y_test = (df_feat_test ["grupo"] == "TDAH").astype(int)
     
     else:
@@ -292,7 +294,6 @@ if __name__ == "__main__":
         [ctrl_feat_train, tdah_feat_train],
         ignore_index=True)
         X_train = df_feat_train.rename(columns=channel_map)
-        X_train_model = X_train.drop(columns=["grupo", "split"])
         y_train = (df_feat_train ["grupo"] == "TDAH").astype(int)
     
         # Conjunto Test
@@ -300,8 +301,10 @@ if __name__ == "__main__":
         [ctrl_feat_test, tdah_feat_test],
         ignore_index=True)
         X_test = df_feat_test.rename(columns=channel_map)
-        X_test_model = X_test.drop(columns=["grupo", "split"])
         y_test = (df_feat_test ["grupo"] == "TDAH").astype(int)
+
+    X_train_model = X_train.drop(columns=["grupo", "split"], errors="ignore")
+    X_test_model = X_test.drop(columns=["grupo", "split"], errors="ignore")
 
     # %% [4] ENTRENAMIENTO XGBOOST
 
