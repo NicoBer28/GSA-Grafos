@@ -75,14 +75,14 @@ def armo_laplaciano(cov, threshold):
    diagonal = np.array([sum(Adj[i,:] for i in range(Adj.shape[0]))])[0]  # Genero matriz de grado sobre matriz umbralizada
    D = np.diag(diagonal)                        # Genero matriz de grado
    L = D - Adj                                  # Laplaciano
- 
-                    
+   L = np.abs(L)
+   #L[L < 0] = 0                  
    return Adj, L
       
 
 ############################################################################
 
-def genero_grafo(cov, threshold, canales, canales_str, ploteo = 0):
+def genero_grafo(cov, threshold, canales, canales_str, ploteo = 1):
   
     A, L = armo_laplaciano(cov, threshold)
 

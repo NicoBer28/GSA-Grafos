@@ -46,7 +46,7 @@ def leodatos(path):
     return X
 
 
-def extraer_features(X, threshold, local):
+def extraer_features(X, threshold, local, channels_str):
     def escalar_a_real(value):
         value = np.real_if_close(value)
         if np.iscomplexobj(value):
@@ -60,14 +60,15 @@ def extraer_features(X, threshold, local):
         return values.astype(float)
 
     feature = []
-
     for kk in range(X.shape[0]):
+    #for kk in range(15):
         #threshold = umbral_por_persona(X[kk, :, :], top_frac=0.20)
+        #print(threshold)
         graph, A, L = gpl.genero_grafo(
             X[kk, :, :], 
             threshold, 
             range(19), 
-            [f'Ch{i}' for i in range(19)], 
+            channels_str,
             0
         )
 
@@ -89,7 +90,7 @@ def extraer_features(X, threshold, local):
         }
 
         
-        if not local:
+        if local:
             feat.update({f"degree_{i}": degree[i] for i in range(len(degree))})
             feat.update({f"ec_{i}": ec[i] for i in range(len(ec))})
         else:
@@ -170,7 +171,7 @@ def phase_locking(datos, fs):
                 phase_diff = np.exp(1j * (phase_data[i, :] - phase_data[j, :]))  # Diferencia de fase en forma compleja
                 plv_matrix[i, j] = np.abs(np.mean(phase_diff))  # PLV = media del módulo
                 plv_matrix[j, i] = plv_matrix[i, j]  # Matriz simétrica
-    
+        #np.fill_diagonal(plv_matrix, 1.0)
         return plv_matrix
 
 
@@ -271,19 +272,23 @@ if __name__ == "__main__":
         plv_ctrl_test[i,:,:] = phase_locking(X_ctrl_test[i,:,:], fs)        
     for i in range(X_tdah_test.shape[0]):
         plv_tdah_test[i,:,:] = phase_locking(X_tdah_test[i,:,:], fs)
+    # %%
+    for i in range(X_ctrl_train.shape[0]):
+        print(max(plv_ctrl_test[i::].ravel()))
+        print(min(plv_ctrl_test[i::].ravel()))
 
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
     threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac=0.20)
     #threshold = 0.4   
-    local = False
+    local = True
+    #print(threshold)
 
 
-    ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local))
-    tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local))
-    ctrl_feat_test  = pd.DataFrame(extraer_features(plv_ctrl_test , threshold, local))
-    tdah_feat_test = pd.DataFrame(extraer_features(plv_tdah_test, threshold, local))
-   
+    ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local, channels_str=eeg_channels))
+    tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local, channels_str=eeg_channels))
+    ctrl_feat_test  = pd.DataFrame(extraer_features(plv_ctrl_test , threshold, local, channels_str=eeg_channels))
+    tdah_feat_test = pd.DataFrame(extraer_features(plv_tdah_test, threshold, local, channels_str=eeg_channels))
 
 
     ctrl_feat_train["grupo"] = "CTRL"   
@@ -305,7 +310,7 @@ if __name__ == "__main__":
     # "degree"
     # "ec"
 
-    if local:    
+    if not local:    
         # Conjunto Train
         df_feat_train = pd.concat(
         [ctrl_feat_train, tdah_feat_train],
@@ -364,6 +369,9 @@ if __name__ == "__main__":
     print(f'Precision: {precision_test:.4f}')
     print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 
+# %%
+    for i, imp in enumerate(importances):
+        print(f"Feature {i}: {imp:.4f}")
     # %% [5] ENTRENAMIENTO CON TOP N FEATURES
 
     plt.figure()
