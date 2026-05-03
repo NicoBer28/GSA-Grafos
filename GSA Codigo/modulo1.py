@@ -15,10 +15,9 @@ import mne
 
 ############################################################################
 def GSA(g, A, L):
-	
-    aval,avec = np.linalg.eig(L)
-    aval = np.sort(aval)
-    avalA,avecA = np.linalg.eig(A)
+    aval,avec = np.linalg.eigh(L)
+    #aval = np.sort(aval)
+    avalA,avecA = np.linalg.eigh(A)
     idx = np.argmax(abs(avalA))
     ec = avecA[:,idx]
    
@@ -71,11 +70,11 @@ def armo_laplaciano(cov, threshold):
    #cov_umb[idx1[0], idx1[1]] = 1                # Matriz de covarianza binarizada
    d_0 = np.diag(cov_umb)
    Adj = cov_umb-np.diag(d_0)                   # Matriz de Adyacencia
-
+   
    diagonal = np.array([sum(Adj[i,:] for i in range(Adj.shape[0]))])[0]  # Genero matriz de grado sobre matriz umbralizada
    D = np.diag(diagonal)                        # Genero matriz de grado
    L = D - Adj                                  # Laplaciano
-   L = np.abs(L)
+   #L = np.abs(L)
    #L[L < 0] = 0                  
    return Adj, L
       

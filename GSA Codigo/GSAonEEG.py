@@ -58,7 +58,7 @@ def extraer_features(X, threshold, local, channels_str):
         if np.iscomplexobj(values):
             values = np.abs(values)
         return values.astype(float)
-
+    
     feature = []
     for kk in range(X.shape[0]):
     #for kk in range(15):
@@ -71,22 +71,22 @@ def extraer_features(X, threshold, local, channels_str):
             channels_str,
             0
         )
-
+        
         ec, spec_ratio, spec_gap, le, degree, ac = gpl.GSA(graph, A, L)
         densidad, g_clus, l_clus = gpl.calculo_grafo(graph, [(11, 7), (12, 16)])
         entropy = gpl.calculo_entropia(graph, degree)
 
-        ec = array_a_real(ec)
-        degree = array_a_real(degree)
+        ec = ec
+        degree = degree
 
         feat = {
-            "AC": escalar_a_real(abs(ac)),
-            "LE": escalar_a_real(le),
-            "Entropy": escalar_a_real(entropy),
-            "SR": escalar_a_real(spec_ratio),
-            "SG": escalar_a_real(abs(spec_gap)),
-            "dens": escalar_a_real(densidad),
-            "g_clus": escalar_a_real(g_clus)
+            "AC": abs(ac),
+            "LE": le,
+            "Entropy": entropy,
+            "SR": spec_ratio,
+            "SG": abs(spec_gap),
+            "dens": densidad,
+            "g_clus": g_clus
         }
 
         
@@ -369,9 +369,6 @@ if __name__ == "__main__":
     print(f'Precision: {precision_test:.4f}')
     print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 
-# %%
-    for i, imp in enumerate(importances):
-        print(f"Feature {i}: {imp:.4f}")
     # %% [5] ENTRENAMIENTO CON TOP N FEATURES
 
     plt.figure()
