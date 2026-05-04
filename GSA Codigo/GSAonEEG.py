@@ -1,8 +1,13 @@
+# %%
+importlib.reload(gpl)
 # %%  [1] LIBRERIAS Y FUNCIONES
 
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+
+import importlib
 
 """
 Created on Sat Jan 11 10:55:35 2025
@@ -71,7 +76,7 @@ def extraer_features(X, threshold, local, channels_str):
             channels_str,
             0
         )
-        
+
         ec, spec_ratio, spec_gap, le, degree, ac = gpl.GSA(graph, A, L)
         densidad, g_clus, l_clus = gpl.calculo_grafo(graph, [(11, 7), (12, 16)])
         entropy = gpl.calculo_entropia(graph, degree)
@@ -273,9 +278,9 @@ if __name__ == "__main__":
     for i in range(X_tdah_test.shape[0]):
         plv_tdah_test[i,:,:] = phase_locking(X_tdah_test[i,:,:], fs)
     # %%
-    for i in range(X_ctrl_train.shape[0]):
-        print(max(plv_ctrl_test[i::].ravel()))
-        print(min(plv_ctrl_test[i::].ravel()))
+    for i in range(plv_ctrl_test.shape[0]):
+        maximo_paciente = max(plv_ctrl_test[i].ravel())
+        print(f"Paciente {i}: {maximo_paciente}")
 
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 

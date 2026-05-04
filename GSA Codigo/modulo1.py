@@ -54,7 +54,14 @@ def GSA(g, A, L):
   
     return ec, Spec_ratio, Spec_gap, LE, grado_distr, AC 
   
+############################################################################
 
+def grafo_complementario(G, threshold):
+    mat = np.array(G, dtype=float)
+
+    mat[mat > threshold] = 1.0
+
+    return np.ones_like(mat) - mat    
 
 
 ############################################################################
@@ -72,10 +79,28 @@ def armo_laplaciano(cov, threshold):
    Adj = cov_umb-np.diag(d_0)                   # Matriz de Adyacencia
    
    diagonal = np.array([sum(Adj[i,:] for i in range(Adj.shape[0]))])[0]  # Genero matriz de grado sobre matriz umbralizada
+   #diagonal = Adj.sum(axis=1)
    D = np.diag(diagonal)                        # Genero matriz de grado
    L = D - Adj                                  # Laplaciano
-   #L = np.abs(L)
-   #L[L < 0] = 0                  
+   #L = D + Adj
+   return Adj, L
+
+############################################################################
+
+def armo_laplacianoComplementario(cov, threshold):
+   cov_umb = cov.copy()
+   cov_umb = np.abs(cov_umb)
+   cov_umb = grafo_complementario(cov_umb, threshold)
+   # Genero Laplaciano     
+
+   d_0 = np.diag(cov_umb)
+   Adj = cov_umb-np.diag(d_0)                   # Matriz de Adyacencia
+   
+   diagonal = np.array([sum(Adj[i,:] for i in range(Adj.shape[0]))])[0]  # Genero matriz de grado sobre matriz umbralizada
+   #diagonal = Adj.sum(axis=1)
+   D = np.diag(diagonal)                        # Genero matriz de grado
+   L = D - Adj                                  # Laplaciano
+   #L = D + Adj
    return Adj, L
       
 
