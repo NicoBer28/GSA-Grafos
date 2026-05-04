@@ -87,7 +87,7 @@ def armo_laplaciano(cov, threshold):
 
 ############################################################################
 
-def armo_laplacianoComplementario(cov, threshold):
+def armo_laplaciano_complementario(cov, threshold):
    cov_umb = cov.copy()
    cov_umb = np.abs(cov_umb)
    cov_umb = grafo_complementario(cov_umb, threshold)
@@ -203,6 +203,103 @@ def genero_grafo(cov, threshold, canales, canales_str, ploteo = 1):
     return g, A, L
 
 #############################################################################
+
+def genero_grafo_complementario(cov, threshold, canales, canales_str, ploteo = 1):
+  
+    A, L = armo_laplaciano_complementario(cov, threshold)
+
+    # Inicializar grafo no dirigido
+    g = gt.Graph(directed=False)
+    # Añadir vértices al grafo
+    vertex_map = {node: g.add_vertex() for node in canales_str}      
+    #g.vertex_properties["name"] = g.new_vertex_property("string")
+  
+    # Crear una propiedad para las etiquetas de los nodos
+    vertex_labels = g.new_vertex_property("string")
+    for node, vertex in vertex_map.items():
+         vertex_labels[vertex] = node  # Asignar el nombre del canal al vértice
+  
+    # Crear un mapa de propiedades para almacenar los pesos de las aristas
+    peso_arista = g.new_edge_property("float")    
+    # Encontrar las posiciones donde la matriz supera el umbral
+    idx = np.where(A > 0)    
+    # Crear la lista de aristas, excluyendo bucles (autoenlaces)
+    for i, j in zip(idx[0], idx[1]):
+        if i != j:
+            # Agregar la arista al grafo
+            e = g.add_edge(i, j)
+            # Asignar el peso de la arista
+            peso_arista[e] = A[i, j]    
+    # Asignar el mapa de propiedades de peso al grafo
+    g.edge_properties["peso"] = peso_arista    
+    # Remover aristas paralelas
+    gt.remove_parallel_edges(g)
+    
+    # Define las regiones corticales y los colores
+    region_colors = {
+        "frontales": "#FFC0CB",  # Rosa
+        "centrales": "#FFFF00",  # Amarillo
+        "temporales": "#87CEFA",  # Azul
+        "parietales": "#32CD32",  # Verde
+        "occipitales": "#9370DB"  # Morado
+    }
+    
+    # Define los canales en cada región cortical (según el sistema 10-20)
+    regiones_corticales = {
+        "frontales": ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8"],
+        "centrales": ["C3", "Cz", "C4"],
+        "temporales": ["T3", "T4", "T5", "T6"],
+        "parietales": ["P3", "Pz", "P4"],
+        "occipitales": ["O1", "Oz", "O2"]
+    }
+    
+    # Crear una propiedad para los colores de los nodos
+    vertex_colors = g.new_vertex_property("string")
+    
+    # Asignar colores según la región cortical
+    for node, vertex in vertex_map.items():
+        color_asignado = "#D3D3D3"  # Color por defecto (gris claro)
+        for region, canales in regiones_corticales.items():
+            if node in canales:
+                color_asignado = region_colors[region]
+                break
+        vertex_colors[vertex] = color_asignado  # Asignar color al nodo
+
+
+    # Cargo etiquetas de los nodos
+    if ploteo == True:
+       
+      # Normalizar los pesos para utilizarlos como anchos de aristas
+      # Puedes ajustar el factor de escala (por ejemplo, multiplicando por 5) para hacer más visibles los anchos
+      max_peso = max(peso_arista.a)
+      ancho_arista = g.new_edge_property("float")
+      ancho_arista.a = 5 * (peso_arista.a / max_peso)  # Ajusta el factor de escala a tu gusto
+
+      # Cargar el montaje del sistema 10-20
+      montage = mne.channels.make_standard_montage('standard_1020')
+      pos = montage.get_positions()['ch_pos']  # Diccionario de posiciones de los electrodos
+      
+
+      # Crear una propiedad para las posiciones de los vértices
+      vertex_positions = g.new_vertex_property("vector<double>")
+      for node, vertex in vertex_map.items():
+          vertex_positions[vertex] = pos[node][:2]  # Coordenadas (x, y)
+
+
+      # Dibuja el grafo, asignando los anchos y colores de aristas
+      gt.graph_draw(
+          g,
+          pos=vertex_positions,
+          vertex_text=vertex_labels,  # Usar los nombres de los canales como texto de los nodos
+          vertex_fill_color=vertex_colors,
+          vertex_size=40,
+          edge_pen_width=2,
+          output_size=(800, 600),
+          #output="grafo_eeg.png",  # También guarda la imagen en un archivo
+          )
+
+    return g, A, L
+
 
 def calculo_grafo(g, pares):
 
