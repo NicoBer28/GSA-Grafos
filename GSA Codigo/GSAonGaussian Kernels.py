@@ -181,20 +181,24 @@ if __name__ == "__main__":
 
     n_chs = 19
     inicio = time.time()  # Captura el tiempo de inicio
-    X_ctrl_train = leodatos('Gausian Kernel/train_class0_fold2.npz')
-    X_ctrl_test = leodatos('Gausian Kernel/test_class0_fold2.npz')
-    X_tdah_train = leodatos('Gausian Kernel/train_class1_fold2.npz')
-    X_tdah_test = leodatos('Gausian Kernel/test_class1_fold2.npz')
+    X_ctrl_train = leodatos('../Gausian Kernel/train_class0_fold2.npz')
+    X_ctrl_test = leodatos('../Gausian Kernel/test_class0_fold2.npz')
+    X_tdah_train = leodatos('../Gausian Kernel/train_class1_fold2.npz')
+    X_tdah_test = leodatos('../Gausian Kernel/test_class1_fold2.npz')
     # Inicializar las métricas con listas vacias
 
-    for j in range(X_ctrl_train.shape[0]):
-        X_ctrl_train[j,:,:] = X_ctrl_train[j,:,:]  - np.eye(n_chs,n_chs)
-    for j in range(X_ctrl_test.shape[0]):
-        X_ctrl_test[j,:,:] = X_ctrl_test[j,:,:]  - np.eye(n_chs,n_chs)
-    for j in range(X_tdah_train.shape[0]):
-        X_tdah_train[j,:,:] = X_tdah_train[j,:,:]  - np.eye(n_chs,n_chs)
-    for j in range(X_tdah_test.shape[0]):
-        X_tdah_test[j,:,:] = X_tdah_test[j,:,:]  - np.eye(n_chs,n_chs)
+    # for j in range(X_ctrl_train.shape[0]):
+    #     X_ctrl_train[j,:,:] = X_ctrl_train[j,:,:]  - np.eye(n_chs,n_chs)
+    # for j in range(X_ctrl_test.shape[0]):
+    #     X_ctrl_test[j,:,:] = X_ctrl_test[j,:,:]  - np.eye(n_chs,n_chs)
+    # for j in range(X_tdah_train.shape[0]):
+    #     X_tdah_train[j,:,:] = X_tdah_train[j,:,:]  - np.eye(n_chs,n_chs)
+    # for j in range(X_tdah_test.shape[0]):
+    #     X_tdah_test[j,:,:] = X_tdah_test[j,:,:]  - np.eye(n_chs,n_chs)
+
+    for dataset in (X_ctrl_train, X_ctrl_test, X_tdah_train, X_tdah_test):
+        for j in range(dataset.shape[0]):
+            np.fill_diagonal(dataset[j], 0)
 
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
