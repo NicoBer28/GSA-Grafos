@@ -1,5 +1,3 @@
-# %%
-importlib.reload(gpl)
 # %%  [1] LIBRERIAS Y FUNCIONES
 
 
@@ -51,7 +49,15 @@ def leodatos(path):
     return X
 
 
-def extraer_features(X, threshold, local, channels_str):
+def extraer_features(
+    X,
+    threshold,
+    local,
+    threshold_local=False,
+    grafo_complementario=False,
+    top_frac=0.5,
+    channels_str=None,
+):
     def escalar_a_real(value):
         value = np.real_if_close(value)
         if np.iscomplexobj(value):
@@ -64,10 +70,12 @@ def extraer_features(X, threshold, local, channels_str):
             values = np.abs(values)
         return values.astype(float)
     
+
     feature = []
     for kk in range(X.shape[0]):
     #for kk in range(15):
-        #threshold = umbral_por_persona(X[kk, :, :], top_frac=0.20)
+        if threshold_local:
+            threshold = umbral_por_persona(X[kk, :, :], top_frac)
         #print(threshold)
         graph, A, L = gpl.genero_grafo(
             X[kk, :, :], 
@@ -76,13 +84,10 @@ def extraer_features(X, threshold, local, channels_str):
             channels_str,
             0
         )
-
         ec, spec_ratio, spec_gap, le, degree, ac = gpl.GSA(graph, A, L)
         densidad, g_clus, l_clus = gpl.calculo_grafo(graph, [(11, 7), (12, 16)])
         entropy = gpl.calculo_entropia(graph, degree)
 
-        ec = ec
-        degree = degree
 
         feat = {
             "AC": abs(ac),
@@ -93,15 +98,48 @@ def extraer_features(X, threshold, local, channels_str):
             "dens": densidad,
             "g_clus": g_clus
         }
-
-        
+    
         if local:
             feat.update({f"degree_{i}": degree[i] for i in range(len(degree))})
             feat.update({f"ec_{i}": ec[i] for i in range(len(ec))})
+
         else:
             feat["degree"] = degree.mean()
             feat["ec"] = ec.mean()
-        
+
+
+        if grafo_complementario:
+            graph_c, Ac, Lc = gpl.genero_grafo_complementario(
+                X[kk, :, :],
+                threshold,
+                range(19),
+                channels_str,
+                0,
+            )
+
+            ec_c, spec_ratio_c, spec_gap_c, le_c, degree_c, ac_c = gpl.GSA(graph_c, Ac, Lc)
+            densidad_c, g_clus_c, l_clus_c = gpl.calculo_grafo(graph_c, [(11, 7), (12, 16)])
+            entropy_c = gpl.calculo_entropia(graph_c, degree_c)
+
+            feat_c = {
+                "AC_c": abs(ac_c),
+                "LE_c": le_c,
+                "Entropy_c": entropy_c,
+                "SR_c": spec_ratio_c,
+                "SG_c": abs(spec_gap_c),
+                "dens_c": densidad_c,
+                "g_clus_c": g_clus_c,
+            }
+
+            if local:
+                feat_c.update({f"degree_c_{i}": degree_c[i] for i in range(len(degree_c))})
+                feat_c.update({f"ec_c_{i}": ec_c[i] for i in range(len(ec_c))})
+            else:
+                feat_c["degree_c"] = degree_c.mean()
+                feat_c["ec_c"] = ec_c.mean()
+
+            feat.update(feat_c)
+
         feature.append(feat)
     
     return feature
@@ -250,6 +288,10 @@ if __name__ == "__main__":
     for i, ch in enumerate(eeg_channels):
         channel_map[f"degree_{i}"] = f"d_{ch}"
         channel_map[f"ec_{i}"] = f"ec_{ch}"
+
+        # Para las métricas del grafo complementario
+        channel_map[f"degree_c_{i}"] = f"d_c_{ch}"
+        channel_map[f"ec_c_{i}"] = f"ec_c_{ch}"
  
     
     # Cargo datos
@@ -277,23 +319,22 @@ if __name__ == "__main__":
         plv_ctrl_test[i,:,:] = phase_locking(X_ctrl_test[i,:,:], fs)        
     for i in range(X_tdah_test.shape[0]):
         plv_tdah_test[i,:,:] = phase_locking(X_tdah_test[i,:,:], fs)
-    # %%
-    for i in range(plv_ctrl_test.shape[0]):
-        maximo_paciente = max(plv_ctrl_test[i].ravel())
-        print(f"Paciente {i}: {maximo_paciente}")
-
+    
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
-
-    threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac=0.20)
-    #threshold = 0.4   
+    #threshold = 0.9   
+    top_frac = 0.20
     local = True
+    threshold_local = False
+    grafo_complementario = True
     #print(threshold)
+    if threshold_local == False:
+        threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac)
 
 
-    ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local, channels_str=eeg_channels))
-    tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local, channels_str=eeg_channels))
-    ctrl_feat_test  = pd.DataFrame(extraer_features(plv_ctrl_test , threshold, local, channels_str=eeg_channels))
-    tdah_feat_test = pd.DataFrame(extraer_features(plv_tdah_test, threshold, local, channels_str=eeg_channels))
+    ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local, threshold_local, grafo_complementario, top_frac, channels_str=eeg_channels))
+    tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local, threshold_local, grafo_complementario, top_frac, channels_str=eeg_channels))
+    ctrl_feat_test  = pd.DataFrame(extraer_features(plv_ctrl_test , threshold, local, threshold_local, grafo_complementario, top_frac, channels_str=eeg_channels))
+    tdah_feat_test = pd.DataFrame(extraer_features(plv_tdah_test, threshold, local, threshold_local, grafo_complementario, top_frac, channels_str=eeg_channels))
 
 
     ctrl_feat_train["grupo"] = "CTRL"   
