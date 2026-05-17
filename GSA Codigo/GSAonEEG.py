@@ -16,6 +16,7 @@ Created on Sat Jan 11 10:55:35 2025
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
+from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 import os
 import pickle
@@ -272,6 +273,23 @@ def umbral_por_persona(plv_2d, top_frac):
     vals = plv_2d[iu]
     return np.quantile(vals, 1 - top_frac)
 
+# Filtra un tensor de EEG (pacientes, canales, tiempo) en una banda específica.
+def filtrar_banda_eeg(datos_3d, frec_min, frec_max, fs):
+    nyq = 0.5 * fs
+    if frec_max >= nyq:
+        frec_max = nyq - 0.1
+    low = frec_min / nyq
+    high = frec_max / nyq
+    b, a = butter(4, [low, high], btype='band')
+    
+    datos_filtrados = np.zeros_like(datos_3d)
+    
+    for i in range(datos_3d.shape[0]):
+        for j in range(datos_3d.shape[1]):
+            datos_filtrados[i, j, :] = filtfilt(b, a, datos_3d[i, j, :])
+            
+    return datos_filtrados
+
 # %% [2] CARGA DE DATOS
 
 ########################## MAIN ###############################################
@@ -284,6 +302,13 @@ if __name__ == "__main__":
 
     eeg_channels = ["Fz","Cz","Pz","C3","T3","C4","T4","Fp1","Fp2","F3","F4","F7","F8","P3","P4","T5","T6","O1","O2"]
     channel_map = {}
+
+    bandas = {
+        "Theta": (4.0, 8.0),
+        "Alpha": (8.0, 13.0),
+        "Beta":  (13.0, 30.0),
+        "Gamma":  (30.0, 100.0)
+    }
 
     for i, ch in enumerate(eeg_channels):
         channel_map[f"degree_{i}"] = f"d_{ch}"
@@ -304,6 +329,14 @@ if __name__ == "__main__":
     X_tdah_train = leodatos('../EEG crudo/train_class1_fold2.npz')
     X_tdah_test = leodatos('../EEG crudo/test_class1_fold2.npz')
     # Inicializar las métricas con listas vacias
+    
+    nombre_banda = "Beta"
+    f_min, f_max = bandas[nombre_banda]
+    X_ctrl_train = filtrar_banda_eeg(X_ctrl_train, f_min, f_max, fs)
+    X_ctrl_test = filtrar_banda_eeg(X_ctrl_test, f_min, f_max, fs)
+    X_tdah_train = filtrar_banda_eeg(X_tdah_train, f_min, f_max, fs)
+    X_tdah_test = filtrar_banda_eeg(X_tdah_test, f_min, f_max, fs)
+
 
     # Calculo PLV a cada registro
     plv_ctrl_train = np.zeros((X_ctrl_train.shape[0],n_chs,n_chs))
@@ -325,7 +358,7 @@ if __name__ == "__main__":
     top_frac = 0.20
     local = True
     threshold_local = False
-    grafo_complementario = True
+    grafo_complementario = False
     #print(threshold)
     if threshold_local == False:
         threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac)
