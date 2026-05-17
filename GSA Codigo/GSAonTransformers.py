@@ -1,3 +1,6 @@
+# %%  [1] LIBRERIAS Y FUNCIONES
+
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -193,6 +196,8 @@ def varios_modelos(X_flat,y):
     df_results = pd.DataFrame(results).T
     print(df_results.sort_values("accuracy_mean", ascending=False))
 
+# %% [2] CARGA DE DATOS
+
 
 ########################## MAIN ###############################################
 
@@ -217,10 +222,10 @@ if __name__ == "__main__":
     local = False
     
     inicio = time.time()  # Captura el tiempo de inicio
-    X_ctrl_train = leodatos('Transformer/train_class0_fold2.npz')
-    X_ctrl_test = leodatos('Transformer/test_class0_fold2.npz')
-    X_tdah_train = leodatos('Transformer/train_class1_fold2.npz')
-    X_tdah_test = leodatos('Transformer/test_class1_fold2.npz')
+    X_ctrl_train = leodatos('../Transformer/train_class0_fold2.npz')
+    X_ctrl_test = leodatos('../Transformer/test_class0_fold2.npz')
+    X_tdah_train = leodatos('../Transformer/train_class1_fold2.npz')
+    X_tdah_test = leodatos('../Transformer/test_class1_fold2.npz')
     # Inicializar las métricas con listas vacias
 
     # Calculo PLV a cada registro
@@ -237,6 +242,9 @@ if __name__ == "__main__":
         plv_ctrl_test[i,:,:] = phase_locking(X_ctrl_test[i,:,:], fs)        
     for i in range(X_tdah_test.shape[0]):
         plv_tdah_test[i,:,:] = phase_locking(X_tdah_test[i,:,:], fs)
+
+    # %% [3] EXTRACCIÓN DE MÉTRICAS    
+
     
     ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local))
     tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local))
@@ -285,6 +293,7 @@ if __name__ == "__main__":
          X_test_model = X_test.drop(columns=["grupo", "split"])
          y_test = (df_feat_test ["grupo"] == "TDAH").astype(int)
 
+    # %% [4] ENTRENAMIENTO XGBOOST
 
     plt.figure()
     model, metricas, importances = clasifico_Xgboost(X_train_model,y_train)
@@ -306,6 +315,8 @@ if __name__ == "__main__":
     print(f'Recall: {recall_test:.4f}')
     print(f'Precision: {precision_test:.4f}')
     print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+
+    # %% [5] ENTRENAMIENTO CON TOP N FEATURES
 
     plt.figure()
     n_largest_feat = 6
@@ -340,6 +351,9 @@ if __name__ == "__main__":
     plt.ylabel("Importance")
     plt.title("Raw EEG + Transformer")
     plt.show()
+    
+    # %% [6] GUARDAR RESULTADOS
+
 
     output_dir = '../Resultados/Transformers'
     parent_dir = '../Resultados/Transformers'
