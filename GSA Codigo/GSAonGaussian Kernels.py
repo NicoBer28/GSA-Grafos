@@ -215,12 +215,13 @@ if __name__ == "__main__":
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
     threshold = 0.92   
-    top_frac = 0.20
+    top_frac = 0.50
     local = True
     threshold_local = False    
 
     if threshold_local == False:
         threshold = umbral_global_train(X_ctrl_train, X_tdah_train, top_frac)
+        print(f"Umbral global calculado: {threshold:.4f}")
 
     ctrl_train_feat = pd.DataFrame(extraer_features(X_ctrl_train, threshold, local))
     ctrl_test_feat = pd.DataFrame(extraer_features(X_ctrl_test, threshold, local))

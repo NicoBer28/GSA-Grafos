@@ -246,6 +246,7 @@ if __name__ == "__main__":
         "Beta":  (13.0, 30.0),
         "Gamma":  (30.0, 100.0)
     }
+    filtrar_por_banda = True
 
     for i, ch in enumerate(eeg_channels):
         channel_map[f"degree_{i}"] = f"d_{ch}"
@@ -263,12 +264,13 @@ if __name__ == "__main__":
     X_tdah_test = leodatos('../Transformer/test_class1_fold2.npz')
     # Inicializar las métricas con listas vacias
 
-    nombre_banda = "Gamma"
-    f_min, f_max = bandas[nombre_banda]
-    X_ctrl_train = filtrar_banda_eeg(X_ctrl_train, f_min, f_max, fs)
-    X_ctrl_test = filtrar_banda_eeg(X_ctrl_test, f_min, f_max, fs)
-    X_tdah_train = filtrar_banda_eeg(X_tdah_train, f_min, f_max, fs)
-    X_tdah_test = filtrar_banda_eeg(X_tdah_test, f_min, f_max, fs)
+    if filtrar_por_banda:
+        nombre_banda = "Gamma"
+        f_min, f_max = bandas[nombre_banda]
+        X_ctrl_train = filtrar_banda_eeg(X_ctrl_train, f_min, f_max, fs)
+        X_ctrl_test = filtrar_banda_eeg(X_ctrl_test, f_min, f_max, fs)
+        X_tdah_train = filtrar_banda_eeg(X_tdah_train, f_min, f_max, fs)
+        X_tdah_test = filtrar_banda_eeg(X_tdah_test, f_min, f_max, fs)
 
     # Calculo PLV a cada registro
     plv_ctrl_train = np.zeros((X_ctrl_train.shape[0],n_chs,n_chs))
@@ -294,7 +296,7 @@ if __name__ == "__main__":
 
     if threshold_local == False:
         threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac)
-
+        print(f"Umbral global calculado: {threshold:.4f}")
 
     
     ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local))
