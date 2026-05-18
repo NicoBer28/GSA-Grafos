@@ -74,7 +74,7 @@ def extraer_features(X, threshold, local):
             "g_clus": g_clus
         }
         
-        if not local:
+        if local:
             feat.update({f"degree_{i}": degree[i] for i in range(len(degree))})
             feat.update({f"ec_{i}": ec[i] for i in range(len(ec))})
         else:
@@ -196,6 +196,18 @@ def varios_modelos(X_flat,y):
     df_results = pd.DataFrame(results).T
     print(df_results.sort_values("accuracy_mean", ascending=False))
 
+# Función para calcular el umbral global a partir de los datos de entrenamiento
+def umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac):
+    n_channels = plv_ctrl_train.shape[1]
+    # Solo tomo los valores del triangulo superior de la matriz (sin incluir la diagonal)
+    iu = np.triu_indices(n_channels, k=1)
+
+    vals_ctrl = plv_ctrl_train[:, iu[0], iu[1]].ravel()
+    vals_tdah = plv_tdah_train[:, iu[0], iu[1]].ravel()
+    vals_train = np.concatenate([vals_ctrl, vals_tdah])
+
+    return np.quantile(vals_train, 1 - top_frac)
+
 # %% [2] CARGA DE DATOS
 
 
@@ -216,10 +228,8 @@ if __name__ == "__main__":
  
 
     # Cargo datos
-    threshold = 0.05   # Ojo, este threshold muy bajo porq las salidas del transformer estan descorrelacionadas
     fs = 128
     n_chs = 19
-    local = False
     
     inicio = time.time()  # Captura el tiempo de inicio
     X_ctrl_train = leodatos('../Transformer/train_class0_fold2.npz')
@@ -245,6 +255,15 @@ if __name__ == "__main__":
 
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
+    threshold = 0.05   # Ojo, este threshold muy bajo porq las salidas del transformer estan descorrelacionadas
+    top_frac = 0.20
+    local = True
+    threshold_local = False
+
+    if threshold_local == False:
+        threshold = umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac)
+
+
     
     ctrl_feat_train  = pd.DataFrame(extraer_features(plv_ctrl_train , threshold, local))
     tdah_feat_train = pd.DataFrame(extraer_features(plv_tdah_train, threshold, local))
@@ -260,7 +279,7 @@ if __name__ == "__main__":
     tdah_feat_test["grupo"] = "TDAH"
     tdah_feat_test["split"] = "Test"
 
-    if local:    
+    if not local:    
          # Conjunto Train
          df_feat_train = pd.concat(
          [ctrl_feat_train, tdah_feat_train],
