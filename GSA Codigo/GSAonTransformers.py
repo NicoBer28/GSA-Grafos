@@ -265,7 +265,7 @@ if __name__ == "__main__":
     # Inicializar las métricas con listas vacias
 
     if filtrar_por_banda:
-        nombre_banda = "Gamma"
+        nombre_banda = "Theta"
         f_min, f_max = bandas[nombre_banda]
         X_ctrl_train = filtrar_banda_eeg(X_ctrl_train, f_min, f_max, fs)
         X_ctrl_test = filtrar_banda_eeg(X_ctrl_test, f_min, f_max, fs)
