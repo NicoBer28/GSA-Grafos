@@ -28,8 +28,6 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, roc_auc_score
 
 
-
-
 def save_results(results, output_dir, arch):
     """Saves processed results to disk."""
     os.makedirs(output_dir, exist_ok=True)
