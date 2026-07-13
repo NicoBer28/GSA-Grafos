@@ -442,9 +442,9 @@ def umbral_global_train_dirigido(te_train, top_frac):
 
 if __name__ == "__main__":
     
-    print('#############################################')
-    print(' EVALUACIÓN 5-FOLD CROSS VALIDATION (CLÍNICA)')
-    print('#############################################')
+    print('#####################################################')
+    print(' EVALUACIÓN 5-FOLD: TODAS LAS FEATURES')
+    print('#####################################################')
 
     eeg_channels = ["Fz","Cz","Pz","C3","T3","C4","T4","Fp1","Fp2","F3","F4","F7","F8","P3","P4","T5","T6","O1","O2"]
     
@@ -460,169 +460,185 @@ if __name__ == "__main__":
         
     ruta_base_carpetas = "../Entropia/TE_matrices_all_folds_train_validation_test_diag_zero"
     
-    
-    # Parámetros de características
     top_frac = 0.20
     local = True
     threshold_local = False
     q = 0.1
 
-    # Bolsas globales para guardar los resultados de los 5 Folds juntos
+    # %% [3] EXTRACCIÓN DE MÉTRICAS    
+
+    importancias_globales = []
+    
+    # Variables globales que usaremos en el Bloque 2
+    memoria_folds = {}
+    columnas_features = None
+
     y_reales_pacientes_global = []
     y_pred_pacientes_global = []
+    y_proba_pacientes_global = []
     y_reales_ventanas_global = []
     y_pred_ventanas_global = []
-    importancias_globales = []
 
     inicio = time.time()
 
-    # Iteramos por los 5 Folds
     for fold in range(1, 6):
-        print(f"\n--- PROCESANDO FOLD {fold} ---")
-        
-        # 1. Cargamos los datos de este Fold
+        print(f"--- Extrayendo y entrenando FOLD {fold} ---")
+        # 1. Carga de datos
         X_train, y_train, ids_train = cargar_datos_split(ruta_base_carpetas, fold, "train")
         X_val, y_val, ids_val = cargar_datos_split(ruta_base_carpetas, fold, "validation")
         X_test, y_test, ids_test = cargar_datos_split(ruta_base_carpetas, fold, "test")
         
-        # Unimos Train y Validation para tener más datos de entrenamiento
-        # (Esto es estándar si no vamos a usar Validation para afinar hiperparámetros)
-        X_entrenamiento = np.concatenate([X_train, X_val])
-        y_entrenamiento = np.concatenate([y_train, y_val])
-        
-        # 2. Calculamos el umbral SOLO con los datos de entrenamiento
-        threshold_e = umbral_global_train_dirigido(X_entrenamiento, top_frac)
-        print(f"Umbral calculado para Fold {fold}: {threshold_e:.4f}")
-        
-        # 3. Extraemos características
-        print("Extrayendo características ...")
-        df_train = pd.DataFrame(extraer_features_dirigidas(X_entrenamiento, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
+        # 2. Umbral
+        threshold_e = umbral_global_train_dirigido(X_train, top_frac)
+        # 3. Extracción de características
+        df_train = pd.DataFrame(extraer_features_dirigidas(X_train, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
+        df_val   = pd.DataFrame(extraer_features_dirigidas(X_val, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
         df_test  = pd.DataFrame(extraer_features_dirigidas(X_test, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
         
-        # Renombramos columnas
         X_train_model = df_train.rename(columns=channel_map_e)
-        X_test_model = df_test.rename(columns=channel_map_e)
+        X_val_model   = df_val.rename(columns=channel_map_e)
+        X_test_model  = df_test.rename(columns=channel_map_e)
         
-        # 4. Entrenamos el modelo XGBoost
+        columnas_features = X_train_model.columns # Guardamos los nombres de las columnas
+        
+        # Guardamos en memoria para reciclar en la etapa 2
+        memoria_folds[fold] = {
+            "X_train": X_train_model, "y_train": y_train,
+            "X_val": X_val_model, "y_val": y_val,
+            "X_test": X_test_model, "y_test": y_test, "ids_test": ids_test
+        }
+        
+        # 4. Entrenamos el modelo
         model = XGBClassifier(
             objective="binary:logistic", eval_metric="logloss",
-            n_estimators=200, max_depth=3, learning_rate=0.05,
-            subsample=0.8, colsample_bytree=0.8, random_state=42
+            n_estimators=500, max_depth=3, learning_rate=0.05,
+            subsample=0.8, colsample_bytree=0.8, random_state=42,
+            early_stopping_rounds=20
         )
-        model.fit(X_train_model, y_entrenamiento)
+        model.fit(X_train_model, y_train, eval_set=[(X_val_model, y_val)], verbose=False)
         importancias_globales.append(model.feature_importances_)
         
-        # 5. Evaluamos el Test
+        # 5. Predecimos
         predicciones_ventanas = model.predict(X_test_model)
-        
-        # Guardamos rendimiento algorítmico (Por Ventana)
+        predicciones_proba = model.predict_proba(X_test_model)[:, 1]
         y_reales_ventanas_global.extend(y_test)
         y_pred_ventanas_global.extend(predicciones_ventanas)
         
-        # 6. VOTACIÓN MAYORITARIA (Rendimiento Clínico por Paciente)
-        pacientes_unicos_test = np.unique(ids_test)
-        
-        for paciente in pacientes_unicos_test:
-            # Buscamos qué ventanas le pertenecen a este paciente
+        # Votación Mayoritaria Clínica
+        pacientes_unicos = np.unique(ids_test)
+        for paciente in pacientes_unicos:
             mascara_paciente = (ids_test == paciente)
-            votos_del_paciente = predicciones_ventanas[mascara_paciente]
+            votos = predicciones_ventanas[mascara_paciente]
+            votos_proba = predicciones_proba[mascara_paciente]
             etiqueta_real = y_test[mascara_paciente][0]
             
-            # Si el modelo dijo que >50% de las ventanas son TDAH, diagnosticamos TDAH
-            voto_final = 1 if np.mean(votos_del_paciente) > 0.5 else 0
+            voto_final = 1 if np.mean(votos) > 0.5 else 0
+            proba_final = np.mean(votos_proba)
             
             y_reales_pacientes_global.append(etiqueta_real)
             y_pred_pacientes_global.append(voto_final)
-    # # Iteramos por los 5 Folds
-    # for fold in range(1, 6):
-    #     print(f"\n--- PROCESANDO FOLD {fold} ---")
-        
-    #     # 1. Cargamos los datos de este Fold (NO LOS JUNTAMOS)
-    #     X_train, y_train, ids_train = cargar_datos_split(ruta_base_carpetas, fold, "train")
-    #     X_val, y_val, ids_val = cargar_datos_split(ruta_base_carpetas, fold, "validation")
-    #     X_test, y_test, ids_test = cargar_datos_split(ruta_base_carpetas, fold, "test")
-        
-    #     # 2. Calculamos el umbral SOLO con Train
-    #     threshold_e = umbral_global_train_dirigido(X_train, top_frac)
-        
-    #     # 3. Extraemos características
-    #     df_train = pd.DataFrame(extraer_features_dirigidas(X_train, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
-    #     df_val   = pd.DataFrame(extraer_features_dirigidas(X_val, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
-    #     df_test  = pd.DataFrame(extraer_features_dirigidas(X_test, threshold_e, local, q, threshold_local, top_frac, eeg_channels))
-        
-    #     X_train_model = df_train.rename(columns=channel_map_e)
-    #     X_val_model   = df_val.rename(columns=channel_map_e)
-    #     X_test_model  = df_test.rename(columns=channel_map_e)
-        
-    #     # 4. Entrenamos el modelo usando Validation para "Early Stopping"
-    #     model = XGBClassifier(
-    #         objective="binary:logistic", eval_metric="logloss",
-    #         n_estimators=500, # Le damos permiso para hacer 500 árboles
-    #         max_depth=3, learning_rate=0.05,
-    #         subsample=0.8, colsample_bytree=0.8, random_state=42,
-    #         early_stopping_rounds=20 # Si durante 20 árboles seguidos el Validation no mejora, frena.
-    #     )
-        
-    #     # Le pasamos el validation al fit!
-    #     model.fit(
-    #         X_train_model, y_train,
-    #         eval_set=[(X_val_model, y_val)],
-    #         verbose=False # Para que no te llene la pantalla de texto
-    #     )
-    #     importancias_globales.append(model.feature_importances_)
-        
-    #     # 5. Evaluamos el Test
-    #     predicciones_ventanas = model.predict(X_test_model)
-        
-    #     # Guardamos rendimiento algorítmico (Por Ventana)
-    #     y_reales_ventanas_global.extend(y_test)
-    #     y_pred_ventanas_global.extend(predicciones_ventanas)
-        
-    #     # 6. VOTACIÓN MAYORITARIA (Rendimiento Clínico por Paciente)
-    #     pacientes_unicos_test = np.unique(ids_test)
-        
-    #     for paciente in pacientes_unicos_test:
-    #         # Buscamos qué ventanas le pertenecen a este paciente
-    #         mascara_paciente = (ids_test == paciente)
-    #         votos_del_paciente = predicciones_ventanas[mascara_paciente]
-    #         etiqueta_real = y_test[mascara_paciente][0]
-            
-    #         # Si el modelo dijo que >50% de las ventanas son TDAH, diagnosticamos TDAH
-    #         voto_final = 1 if np.mean(votos_del_paciente) > 0.5 else 0
-            
-    #         y_reales_pacientes_global.append(etiqueta_real)
-    #         y_pred_pacientes_global.append(voto_final)
+            y_proba_pacientes_global.append(proba_final)
 
-    # ==============================================================
-    # MÉTRICAS FINALES (PROMEDIO DE LOS 5 FOLDS)
-    # ==============================================================
+    # Calculamos la importancia promedio para usarla en el Bloque 2
+    importancia_promedio = np.mean(importancias_globales, axis=0)
+
+    # Resultados Finales (TODAS LAS FEATURES)
     print('\n' + '='*50)
-    print(' RENDIMIENTO CLÍNICO GLOBAL (POR PACIENTE)')
+    print(' RENDIMIENTO POR PACIENTE (TODAS LAS FEATURES)')
     print('='*50)
     print(f'Accuracy : {accuracy_score(y_reales_pacientes_global, y_pred_pacientes_global):.4f}')
     print(f'F1-Score : {f1_score(y_reales_pacientes_global, y_pred_pacientes_global):.4f}')
     print(f'Recall   : {recall_score(y_reales_pacientes_global, y_pred_pacientes_global):.4f}')
     print(f'Precision: {precision_score(y_reales_pacientes_global, y_pred_pacientes_global):.4f}')
-    
-    print('\n' + '-'*50)
-    print(' RENDIMIENTO ALGORÍTMICO GLOBAL (POR VENTANA)')
-    print('-'*50)
-    print(f'Accuracy : {accuracy_score(y_reales_ventanas_global, y_pred_ventanas_global):.4f}')
-    print(f'F1-Score : {f1_score(y_reales_ventanas_global, y_pred_ventanas_global):.4f}')
-    print(f'Recall   : {recall_score(y_reales_ventanas_global, y_pred_ventanas_global):.4f}')
-    print(f'Precision: {precision_score(y_reales_ventanas_global, y_pred_ventanas_global):.4f}')
+    print(f'AUC ROC  : {roc_auc_score(y_reales_pacientes_global, y_proba_pacientes_global):.4f}')
 
-    # Gráfico de importancias promedio de los 5 Folds
-    importancia_promedio = np.mean(importancias_globales, axis=0)
     plt.figure(figsize=(12, 5))
-    plt.bar(X_train_model.columns, importancia_promedio)
+    plt.bar(columnas_features, importancia_promedio)
     plt.ylabel("Importance")
-    plt.title("Feature Importance Promedio (5-Folds)")
+    plt.title("Feature Importance Promedio (5-Folds) - Todas las features")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.show()
-    
+
     fin = time.time()
-    print(f"\nTiempo total de ejecución: {fin - inicio:.2f} segundos")
+    print(f"\nTiempo del Bloque 1: {fin - inicio:.2f} segundos")
+
+    # %% [4] TOP N Features
+    n_largest_feat = 6
+    
+    # 1. Obtenemos las Top N columnas usando el vector importancia_promedio del bloque anterior
+    top_n_cols = pd.Series(importancia_promedio, index=columnas_features).nlargest(n_largest_feat).index
+    
+    print('\n' + '★'*50)
+    print(f' RE-ENTRENANDO SOLO CON LAS TOP {n_largest_feat} FEATURES')
+    print('★'*50)
+    for idx, feature in enumerate(top_n_cols, 1):
+        print(f"{idx}. {feature}")
+    print('-'*50)
+
+    y_reales_pacientes_top = []
+    y_pred_pacientes_top = []
+    y_proba_pacientes_top = []
+    
+    inicio_top = time.time()
+
+    # 2. Iteramos usando los datos que ya teníamos en RAM
+    for fold in range(1, 6):
+        data = memoria_folds[fold]
+        
+        # Filtramos para quedarnos solo con las Top N columnas
+        X_train_top = data["X_train"][top_n_cols]
+        X_val_top   = data["X_val"][top_n_cols]
+        X_test_top  = data["X_test"][top_n_cols]
+        
+        # Entrenamos de nuevo
+        model_top = XGBClassifier(
+            objective="binary:logistic", eval_metric="logloss",
+            n_estimators=500, max_depth=3, learning_rate=0.05,
+            subsample=0.8, colsample_bytree=0.8, random_state=42,
+            early_stopping_rounds=20
+        )
+        model_top.fit(X_train_top, data["y_train"], eval_set=[(X_val_top, data["y_val"])], verbose=False)
+        
+        # Predecimos
+        predicciones_ventanas = model_top.predict(X_test_top)
+        predicciones_proba = model_top.predict_proba(X_test_top)[:, 1]
+        
+        # Votación Mayoritaria Clínica
+        pacientes_unicos = np.unique(data["ids_test"])
+        for paciente in pacientes_unicos:
+            mascara_paciente = (data["ids_test"] == paciente)
+            votos = predicciones_ventanas[mascara_paciente]
+            votos_proba = predicciones_proba[mascara_paciente]
+            etiqueta_real = data["y_test"][mascara_paciente][0]
+            
+            voto_final = 1 if np.mean(votos) > 0.5 else 0
+            proba_final = np.mean(votos_proba)
+            
+            y_reales_pacientes_top.append(etiqueta_real)
+            y_pred_pacientes_top.append(voto_final)
+            y_proba_pacientes_top.append(proba_final)
+
+    # Resultados Finales Top N
+    print('\n' + '='*50)
+    print(f' RENDIMIENTO POR PACIENTE (TOP {n_largest_feat} FEATURES)')
+    print('='*50)
+    print(f'Accuracy : {accuracy_score(y_reales_pacientes_top, y_pred_pacientes_top):.4f}')
+    print(f'F1-Score : {f1_score(y_reales_pacientes_top, y_pred_pacientes_top):.4f}')
+    print(f'Recall   : {recall_score(y_reales_pacientes_top, y_pred_pacientes_top):.4f}')
+    print(f'Precision: {precision_score(y_reales_pacientes_top, y_pred_pacientes_top):.4f}')
+    print(f'AUC ROC  : {roc_auc_score(y_reales_pacientes_top, y_proba_pacientes_top):.4f}')
+
+    # Gráfico de las Top N
+    plt.figure(figsize=(8, 5))
+    plt.bar(top_n_cols, pd.Series(importancia_promedio, index=columnas_features).nlargest(n_largest_feat))
+    plt.ylabel("Importance")
+    plt.title(f"Top {n_largest_feat} Feature Importance")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+    fin_top = time.time()
+    print(f"\nTiempo del Bloque 2: {fin_top - inicio_top:.2f} segundos")
 
 # %%
