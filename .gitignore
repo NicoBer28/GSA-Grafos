@@ -6,4 +6,5 @@ __pycache__/
 *.pdf
 *.key
 *.zip
+*.csv
 *:Zone.Identifier
