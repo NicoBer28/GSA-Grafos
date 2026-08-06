@@ -4,7 +4,16 @@ Es necesario tener instalado **Conda** (Anaconda o Miniconda).
 
 ---
 
-## 📁 1. Descarga y Organización de Datos
+## 📦 1. Clonar el repositorio
+Situado en la carpeta donde queres que se clone el proyecto, correr el comando:
+```bash
+git clone https://github.com/NicoBer28/GSA-Grafos.git
+```
+Entrar a la carpeta
+```bash
+cd GSA-Grafos
+```
+## 📁 2. Descarga y Organización de Datos
 
 Por razones de tamaño, las matrices de los datos no están almacenadas directamente en el repositorio.
 Por eso, para poder correr los códigos, primero hay que seguir estos pasos:
@@ -28,21 +37,29 @@ GSA-Grafos/
 
 ***Importante***: No modifiques los nombres de los archivos ni la jerarquía de subcarpetas. Si ya tenes descargados los datos no hace falta seguir estos pasos, pero es importante mantener la jerarquía de subcarpetas y nombres de los archivos exactamente iguales.
 
-## 🚀 2. Instalación y Ejecución
+## 🚀 3. Instalación y Ejecución
 Abrí la terminal (o el Anaconda Prompt en Windows) dentro de la carpeta del proyecto y ejecutá los siguientes comandos:
 
 ### Paso 1: Crear el entorno virtual desde el archivo YAML
 
-`conda env create -f environment.yml`
+```bash
+conda env create -f environment.yml
+```
 
 ### Paso 2: Activar el entorno
 
-`conda activate gsa`
+```bash
+conda activate gsa
+```
 
-### Paso 3: Ejecutar el modelo
+### Paso 3: Ejecutar alguno de los modelos
 
-`python DGSAonTE.py`    (o algún otro)
+```bash
+python DGSAonTE.py
+```
 
-Para desactivar el entorno, correr:
+Para desactivar el entorno al finalizar, correr:
 
-`conda deactivate`
+```bash
+conda deactivate
+```
