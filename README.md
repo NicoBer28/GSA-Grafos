@@ -63,3 +63,5 @@ Para desactivar el entorno al finalizar, correr:
 ```bash
 conda deactivate
 ```
+
+***Nota***: Si usan VSCode, para poder correr el código celda por celda van a necesitar instalar la extension Jupyter de Microsoft
