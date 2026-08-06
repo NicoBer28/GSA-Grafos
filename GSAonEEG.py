@@ -6,17 +6,10 @@ import scipy.signal as signal
 from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 import os
-import pickle
 import lib.GSA_lib as gsa
 import time
 from xgboost import XGBClassifier
 from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, roc_auc_score
 
 

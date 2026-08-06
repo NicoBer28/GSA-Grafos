@@ -117,7 +117,7 @@ def umbral_global_train_dirigido(te_train, top_frac):
 
     vals_train = te_train.flatten()
     
-    # Quitamos los ceros (la diagonal y las autoconexiones) para no sesgar el cuantil
+    # Sacamos los ceros (la diagonal y las autoconexiones) para no sesgar el cuantil
     vals_train = vals_train[vals_train > 0]
     
     return np.quantile(vals_train, 1 - top_frac)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     importancias_globales = []
     
-    # Variables globales que usaremos en el Bloque 2
+    # Variables globales que vamos a usar en el Bloque 2
     memoria_folds = {}
     columnas_features = None
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         y_reales_ventanas_global.extend(y_test)
         y_pred_ventanas_global.extend(predicciones_ventanas)
         
-        # Votación Mayoritaria Clínica
+        # Votación Mayoritaria
         pacientes_unicos = np.unique(ids_test)
         for paciente in pacientes_unicos:
             mascara_paciente = (ids_test == paciente)
@@ -298,7 +298,7 @@ if __name__ == "__main__":
         predicciones_ventanas = model_top.predict(X_test_top)
         predicciones_proba = model_top.predict_proba(X_test_top)[:, 1]
         
-        # Votación Mayoritaria Clínica
+        # Votación Mayoritaria
         pacientes_unicos = np.unique(data["ids_test"])
         for paciente in pacientes_unicos:
             mascara_paciente = (data["ids_test"] == paciente)
