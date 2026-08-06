@@ -12,3 +12,4 @@ dependencies:
   - pandas
   - xgboost
   - scikit-learn
+  - ipykernel
