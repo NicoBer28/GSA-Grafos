@@ -53,7 +53,7 @@ def cargar_datos_split(ruta_base, fold, split):
         ids = np.array(ids_list)
         return X, y, ids
     else:
-        return np.array([]), np.array([]), np.array([])
+        raise FileNotFoundError(f"No se encontraron archivos .npz en la ruta: {ruta_base}")
 
 
 def extraer_features_dirigidas(
