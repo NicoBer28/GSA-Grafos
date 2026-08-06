@@ -1,12 +1,4 @@
-# Ignorar datos y resultados
-EEG Crudo/
-Gausian Kernel/
-Resultados/
-Transformer/
-Entropia/
 __pycache__/
-Ex_Grafos_Paula_lib/
-eeglib-master/
 .DS_Store
 *.npz
 *.pkl

@@ -1,14 +1,6 @@
 # %%  [1] LIBRERIAS Y FUNCIONES
 
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jan 11 10:55:35 2025
-
-@author: mariapau
-"""
-
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
@@ -16,7 +8,7 @@ from scipy.signal import butter, filtfilt
 import matplotlib.pyplot as plt
 import os
 import pickle
-import Grafos_Paula_lib as gpl
+import lib.GSA_lib as gsa
 import time
 from xgboost import XGBClassifier
 from sklearn.model_selection import StratifiedKFold, cross_validate
@@ -30,30 +22,19 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_sc
 
 
 
-
-
-
-def save_results(results, output_dir, arch):
-    """Saves processed results to disk."""
-    os.makedirs(output_dir, exist_ok=True)
-    with open(os.path.join(output_dir, f"{arch}.pkl"), "wb") as f:
-        pickle.dump(results, f)
-
-
 def leodatos(path):
     train_tdah = np.load(path)
-    print(train_tdah.files)
+    #print(train_tdah.files)
     X = train_tdah['X_tf']
-    print(X.shape)
+    #print(X.shape)
     return X
-
 
 
 def extraer_features(X, threshold, local):
     feature = []
 
     for kk in range(X.shape[0]):
-        graph, A, L = gpl.genero_grafo(
+        graph, A, L = gsa.genero_grafo(
             X[kk, :, :], 
             threshold, 
             range(19), 
@@ -61,9 +42,9 @@ def extraer_features(X, threshold, local):
             0
         )
 
-        ec, spec_ratio, spec_gap, le, degree, ac = gpl.GSA(graph, A, L)
-        densidad, g_clus, l_clus = gpl.calculo_grafo(graph, [(11, 7), (12, 16)])
-        entropy = gpl.calculo_entropia(graph, degree)
+        ec, spec_ratio, spec_gap, le, degree, ac = gsa.GSA(graph, A, L)
+        densidad, g_clus, l_clus = gsa.calculo_grafo(graph, [(11, 7), (12, 16)])
+        entropy = gsa.calculo_entropia(graph, degree)
 
         feat = {
             "AC": ac,
@@ -161,42 +142,6 @@ def phase_locking(datos, fs):
     
     
 
-def varios_modelos(X_flat,y):
-    models = {
-    "Logistic": LogisticRegression(max_iter=500),
-    "SVM-RBF": SVC(kernel="rbf"),
-    "RandomForest": RandomForestClassifier(n_estimators=300, random_state=42),
-    "KNN": KNeighborsClassifier(n_neighbors=5)
-}
-
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    
-    results = {}
-    
-    for name, model in models.items():
-        pipe = Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", model)
-        ])
-        
-        scores = cross_validate(
-            pipe,
-            X_flat,
-            y,
-            cv=cv,
-            scoring=["accuracy", "recall", "precision"],
-            n_jobs=-1
-        )
-        
-        results[name] = {
-            "accuracy_mean": scores["test_accuracy"].mean(),
-            "accuracy_std": scores["test_accuracy"].std(),
-            "recall_mean": scores["test_recall"].mean(),
-            "precision_mean": scores["test_precision"].mean()
-        }
-    df_results = pd.DataFrame(results).T
-    print(df_results.sort_values("accuracy_mean", ascending=False))
-
 # Función para calcular el umbral global a partir de los datos de entrenamiento
 def umbral_global_train(plv_ctrl_train, plv_tdah_train, top_frac):
     n_channels = plv_ctrl_train.shape[1]
@@ -233,9 +178,10 @@ def filtrar_banda_eeg(datos_3d, frec_min, frec_max, fs):
 
 if __name__ == "__main__":
     
-    print('#######################')
+    print('#####################################################')
     print('EEG CRUDO + Transformer')
-    print('#######################')
+    print('#####################################################')
+    print('\n')
 
     eeg_channels = ["Fz","Cz","Pz","C3","T3","C4","T4","Fp1","Fp2","F3","F4","F7","F8","P3","P4","T5","T6","O1","O2"]
     channel_map = {}
@@ -246,7 +192,7 @@ if __name__ == "__main__":
         "Beta":  (13.0, 30.0),
         "Gamma":  (30.0, 100.0)
     }
-    filtrar_por_banda = True
+    filtrar_por_banda = False
 
     for i, ch in enumerate(eeg_channels):
         channel_map[f"degree_{i}"] = f"d_{ch}"
@@ -258,10 +204,14 @@ if __name__ == "__main__":
     n_chs = 19
     
     inicio = time.time()  # Captura el tiempo de inicio
-    X_ctrl_train = leodatos('../Transformer/train_class0_fold2.npz')
-    X_ctrl_test = leodatos('../Transformer/test_class0_fold2.npz')
-    X_tdah_train = leodatos('../Transformer/train_class1_fold2.npz')
-    X_tdah_test = leodatos('../Transformer/test_class1_fold2.npz')
+
+    directorio_script = os.path.dirname(os.path.abspath(__file__))
+    ruta_base_carpetas = os.path.normpath(os.path.join(directorio_script, "./data/Transformer"))
+
+    X_ctrl_train = leodatos(os.path.normpath(os.path.join(ruta_base_carpetas, 'train_class0_fold2.npz')))
+    X_ctrl_test = leodatos(os.path.normpath(os.path.join(ruta_base_carpetas, 'test_class0_fold2.npz')))
+    X_tdah_train = leodatos(os.path.normpath(os.path.join(ruta_base_carpetas, 'train_class1_fold2.npz')))
+    X_tdah_test = leodatos(os.path.normpath(os.path.join(ruta_base_carpetas, 'test_class1_fold2.npz')))
     # Inicializar las métricas con listas vacias
 
     if filtrar_por_banda:
@@ -271,6 +221,10 @@ if __name__ == "__main__":
         X_ctrl_test = filtrar_banda_eeg(X_ctrl_test, f_min, f_max, fs)
         X_tdah_train = filtrar_banda_eeg(X_tdah_train, f_min, f_max, fs)
         X_tdah_test = filtrar_banda_eeg(X_tdah_test, f_min, f_max, fs)
+
+    print('#####################################################')
+    print(' EVALUACIÓN TODAS LAS FEATURES...')
+    print('#####################################################')
 
     # Calculo PLV a cada registro
     plv_ctrl_train = np.zeros((X_ctrl_train.shape[0],n_chs,n_chs))
@@ -290,7 +244,7 @@ if __name__ == "__main__":
     # %% [3] EXTRACCIÓN DE MÉTRICAS    
 
     threshold = 0.05   # Ojo, este threshold muy bajo porq las salidas del transformer estan descorrelacionadas
-    top_frac = 0.20
+    top_frac = 0.50
     local = True
     threshold_local = False
 
@@ -348,12 +302,7 @@ if __name__ == "__main__":
 
     # %% [4] ENTRENAMIENTO XGBOOST
 
-    plt.figure()
     model, metricas, importances = clasifico_Xgboost(X_train_model,y_train)
-    plt.bar(X_train_model.columns, importances)
-    plt.ylabel("Importance")
-    plt.title("XGBoost feature importance")
-    plt.show()
     
     # Evaluo el modelo con todas las features en datos de TEST
     y_todas_pred = model.predict(X_test_model)
@@ -361,19 +310,40 @@ if __name__ == "__main__":
     f1_test = f1_score(y_test, y_todas_pred)
     recall_test = recall_score(y_test, y_todas_pred)
     precision_test = precision_score(y_test, y_todas_pred)
+    auc_test = roc_auc_score(y_test, y_todas_pred)
     
-    print('%%%%%%%%%%%%%% TEST (Raw EEG + Transformer) %%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+    print('\n' + '='*50)
+    print(' RENDIMIENTO (TODAS LAS FEATURES)')
+    print('='*50)
     print(f'Accuracy: {acc_test:.4f}')
     print(f'F1: {f1_test:.4f}')
     print(f'Recall: {recall_test:.4f}')
     print(f'Precision: {precision_test:.4f}')
-    print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+    print(f'AUC ROC  : {auc_test:.4f}')
+
+    inicio2 = time.time()
+
+    plt.figure()
+    plt.bar(X_train_model.columns, importances)
+    plt.ylabel("Importance")
+    plt.title("XGBoost feature importance")
+    plt.show()
+    plt.figure()
+
+    fin2 = time.time()
 
     # %% [5] ENTRENAMIENTO CON TOP N FEATURES
 
-    plt.figure()
     n_largest_feat = 6
     top_n_cols = pd.Series(importances, index=X_train_model.columns).nlargest(n_largest_feat).index
+
+    print('\n' + '★'*50)
+    print(f' RE-ENTRENANDO SOLO CON LAS TOP {n_largest_feat} FEATURES')
+    print('★'*50)
+    for idx, feature in enumerate(top_n_cols, 1):
+        print(f"{idx}. {feature}")
+    print('-'*50)
+
     X_top_n_train = X_train_model[top_n_cols]
     X_top_n_test  = X_test_model[top_n_cols]
     # obtengo el modelo (sin entrenar) y métricas CV
@@ -390,39 +360,22 @@ if __name__ == "__main__":
     precision_test = precision_score(y_test, y_pred)
     auc_test = roc_auc_score(y_test, y_prob) if y_prob is not None else None
     
-    print(f'%%%%%%%%%%%%%% TEST (Raw EEG + Transformer) {n_largest_feat} features %%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+    print('\n' + '='*50)
+    print(f' RENDIMIENTO (TOP {n_largest_feat} FEATURES)')
+    print('='*50)
     print(f'Accuracy: {acc_test:.4f}')
     print(f'F1: {f1_test:.4f}')
     print(f'Recall: {recall_test:.4f}')
     print(f'Precision: {precision_test:.4f}')
     if auc_test is not None:
         print(f'AUC ROC: {auc_test:.4f}')
-    
-    print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-    print(top_n_cols)
+
+    fin = time.time()
+
     plt.bar(X_top_n_test.columns, importances)
     plt.ylabel("Importance")
     plt.title("Raw EEG + Transformer")
     plt.show()
-    
-    # %% [6] GUARDAR RESULTADOS
 
+    print(f"Tiempo de ejecución: {fin - inicio - fin2 + inicio2:.2f} segundos")
 
-    output_dir = '../Resultados/Transformers'
-    parent_dir = '../Resultados/Transformers'
-
-    fin = time.time()  # Captura el tiempo de inicio
-    print(f"Tiempo de ejecución: {fin - inicio:.6f} segundos")
-
-    # Genero las matrices de conectividad (PLV) promedio
-    # para todos los grupos
-        
-    plv_ctrl_train_prom = np.mean(plv_ctrl_train, axis = 0)
-    plv_ctrl_test_prom = np.mean(plv_ctrl_test, axis = 0)
-    plv_tdah_train_prom = np.mean(plv_tdah_train, axis = 0)
-    plv_tdah_test_prom = np.mean(plv_tdah_test, axis = 0)
-
-    save_results(plv_ctrl_train_prom, output_dir, 'plv_ctrl_train_prom')
-    save_results(plv_ctrl_test_prom, output_dir,'plv_ctrl_test_prom')
-    save_results(plv_tdah_train_prom, output_dir, 'plv_tdah_train_prom')
-    save_results(plv_tdah_test_prom, output_dir, 'plv_tdah_test_prom')
